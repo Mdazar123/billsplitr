@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -25,6 +25,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { collection, addDoc, query, where, onSnapshot, getDocs, Timestamp, doc, setDoc } from "firebase/firestore"
+import { auth, db } from "@/lib/firebase"
+import { onAuthStateChanged } from "firebase/auth"
 
 interface Group {
   id: string
@@ -40,59 +43,92 @@ interface Group {
     paidBy: string
     amount: number
   }>
+  userId: string
+  createdAt: Timestamp
+}
+
+function formatRelativeTime(date: Date | string | number) {
+  const now = new Date()
+  let d: Date
+  if (typeof date === 'string' && !isNaN(Date.parse(date))) d = new Date(date)
+  else if (typeof date === 'number') d = new Date(date)
+  else if (date instanceof Date) d = date
+  else return ''
+  const diff = Math.floor((now.getTime() - d.getTime()) / 1000)
+  if (diff < 60) return 'Just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hour${Math.floor(diff / 3600) > 1 ? 's' : ''} ago`
+  if (diff < 2592000) return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) > 1 ? 's' : ''} ago`
+  return d.toLocaleDateString()
 }
 
 export default function Dashboard() {
-  const [groups, setGroups] = useState<Group[]>([
-    {
-      id: "1",
-      name: "Goa Trip",
-      members: 5,
-      totalExpenses: 25000,
-      yourBalance: -2400,
-      lastActivity: "2 hours ago",
-      avatar: "GT",
-      status: "active",
-      recentExpenses: [
-        { title: "Hotel Booking", paidBy: "Sarah", amount: 12000 },
-        { title: "Group Dinner", paidBy: "Alex", amount: 3500 },
-      ],
-    },
-    {
-      id: "2",
-      name: "Apartment 4B",
-      members: 3,
-      totalExpenses: 12000,
-      yourBalance: 800,
-      lastActivity: "1 day ago",
-      avatar: "A4",
-      status: "pending",
-      recentExpenses: [
-        { title: "Electricity Bill", paidBy: "Mike", amount: 4500 },
-        { title: "Internet Bill", paidBy: "You", amount: 2000 },
-      ],
-    },
-    {
-      id: "3",
-      name: "Office Lunch",
-      members: 8,
-      totalExpenses: 3200,
-      yourBalance: 0,
-      lastActivity: "3 days ago",
-      avatar: "OL",
-      status: "settled",
-      recentExpenses: [{ title: "Team Lunch", paidBy: "John", amount: 3200 }],
-    },
-  ])
-
+  const [groups, setGroups] = useState<Group[]>([])
   const [newGroupName, setNewGroupName] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [userProfile, setUserProfile] = useState<{ name: string; email: string } | null>(null)
 
-  const createGroup = () => {
-    if (!newGroupName.trim()) return
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid)
+        setUserProfile({
+          name: user.displayName || "",
+          email: user.email || "",
+        })
+      } else {
+        setUserId(null)
+        setUserProfile(null)
+      }
+    })
+    return () => unsubscribe()
+  }, [])
 
-    const newGroup: Group = {
-      id: Date.now().toString(),
+  useEffect(() => {
+    if (!userId) return
+    // Fetch all groups
+    getDocs(collection(db, "groups")).then(async (groupSnapshot) => {
+      const allGroups = groupSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      const userGroups: Group[] = []
+      for (const group of allGroups) {
+        // Check if user is a member
+        const membersSnap = await getDocs(collection(db, "groups", group.id, "members"))
+        const members = membersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as any[]
+        if (members.some((m: any) => m.id === userId)) {
+          // Fetch expenses
+          const expensesSnap = await getDocs(collection(db, "groups", group.id, "expenses"))
+          const expenses = expensesSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as any[]
+          const totalExpenses = expenses.reduce((sum, exp: any) => sum + (exp as any).amount || 0, 0)
+          const perPerson = members.length > 0 ? Math.round(totalExpenses / members.length) : 0
+          // Calculate user's total paid
+          const totalPaid = expenses.filter(
+            (exp: any) => (exp as any).paidById === userId || (exp as any).paidBy === (members.find((m: any) => m.id === userId)?.name) || (exp as any).paidByEmail === (members.find((m: any) => m.id === userId)?.email)
+          ).reduce((sum, exp: any) => sum + (exp as any).amount || 0, 0)
+          const yourBalance = totalPaid - perPerson
+          userGroups.push({
+            ...(group as any),
+            name: (group as any).name,
+            members: members.length,
+            totalExpenses,
+            yourBalance,
+            lastActivity: (group as any).lastActivity || "",
+            avatar: (group as any).avatar || "",
+            status: (group as any).status || "active",
+            recentExpenses: [],
+            userId: (group as any).userId,
+            createdAt: (group as any).createdAt,
+            id: group.id,
+          })
+        }
+      }
+      setGroups(userGroups)
+    })
+  }, [userId])
+
+  const createGroup = async () => {
+    if (!newGroupName.trim() || !userId) return
+    const newGroup: Omit<Group, "id"> = {
       name: newGroupName,
       members: 1,
       totalExpenses: 0,
@@ -106,9 +142,16 @@ export default function Dashboard() {
         .toUpperCase(),
       status: "active",
       recentExpenses: [],
+      userId,
+      createdAt: Timestamp.now(),
     }
-
-    setGroups([newGroup, ...groups])
+    const groupRef = await addDoc(collection(db, "groups"), newGroup)
+    // Add creator as member
+    await setDoc(doc(db, "groups", groupRef.id, "members", userId), {
+      id: userId,
+      name: auth.currentUser?.displayName || "",
+      email: auth.currentUser?.email || "",
+    })
     setNewGroupName("")
     setIsCreateDialogOpen(false)
   }
@@ -138,10 +181,12 @@ export default function Dashboard() {
         <div className="container mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <Receipt className="h-3 w-3 sm:h-5 sm:w-5 text-white" />
-              </div>
-              <span className="text-lg sm:text-xl font-bold text-gray-900">BillSplitr</span>
+              <Link href="/" className="flex items-center gap-2 sm:gap-3 focus:outline-none">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <Receipt className="h-3 w-3 sm:h-5 sm:w-5 text-white" />
+                </div>
+                <span className="text-lg sm:text-xl font-bold text-gray-900">BillSplitr</span>
+              </Link>
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
               {/* Settings Dropdown - Simplified */}
@@ -186,12 +231,16 @@ export default function Dashboard() {
                     variant="ghost"
                     className="flex items-center gap-2 hover:bg-gray-100 px-2 sm:px-3 py-2 rounded-lg transition-colors"
                   >
-                    <Avatar className="h-6 w-6 sm:h-8 sm:w-8 bg-blue-600">
-                      <AvatarFallback className="bg-blue-600 text-white text-xs sm:text-sm font-medium">
-                        JD
+                    <Avatar className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-r from-blue-600 to-green-500">
+                      <AvatarFallback className="bg-gradient-to-r from-blue-600 to-green-500 text-white text-base sm:text-lg font-bold flex items-center justify-center">
+                        {userProfile?.name
+                          ? userProfile.name.split(" ").map((n) => n[0]).join("").toUpperCase()
+                          : (userProfile?.email || "?").slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="hidden sm:block text-sm font-medium text-gray-700">John Doe</span>
+                    <span className="hidden sm:block text-sm font-medium text-gray-700">
+                      {userProfile?.name || userProfile?.email || "User"}
+                    </span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
@@ -345,7 +394,7 @@ export default function Dashboard() {
             </Dialog>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 lg:gap-8 lg:px-12">
             {groups.map((group) => (
               <Card
                 key={group.id}
@@ -422,7 +471,11 @@ export default function Dashboard() {
                   <div className="flex justify-between items-center text-sm text-gray-600 pt-2 border-t border-gray-100">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      <span className="text-xs sm:text-sm">{group.lastActivity}</span>
+                      <span className="text-xs sm:text-sm">{
+                        typeof group.lastActivity === 'object' && group.lastActivity !== null && (group.lastActivity as any).seconds
+                          ? formatRelativeTime(new Date((group.lastActivity as any).seconds * 1000))
+                          : formatRelativeTime(group.lastActivity)
+                      }</span>
                     </div>
                     <span className="text-xs sm:text-sm font-medium">
                       ₹{group.totalExpenses.toLocaleString()} total

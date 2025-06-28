@@ -7,20 +7,66 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ArrowLeft, Receipt, Edit, Save } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { doc, getDoc, setDoc } from "firebase/firestore"
+import { auth, db } from "@/lib/firebase"
+import { onAuthStateChanged } from "firebase/auth"
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [profile, setProfile] = useState({
-    name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "+1 (555) 123-4567",
-    joinedDate: "January 2024",
+    name: "",
+    email: "",
+    phone: "",
+    joinedDate: "",
   })
+  const [userId, setUserId] = useState<string | null>(null)
+  const [authUser, setAuthUser] = useState<any>(null)
 
-  const handleSave = () => {
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid)
+        setAuthUser(user)
+        setProfile((prev) => ({ ...prev, email: user.email || "" }))
+      } else {
+        setUserId(null)
+        setAuthUser(null)
+      }
+    })
+    return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (!userId) return
+    const fetchProfile = async () => {
+      const docRef = doc(db, "users", userId)
+      const docSnap = await getDoc(docRef)
+      if (docSnap.exists()) {
+        setProfile((prev) => ({ ...prev, ...docSnap.data() }))
+      } else if (authUser) {
+        // If no profile, use auth data
+        setProfile((prev) => ({
+          ...prev,
+          name: authUser.displayName || "",
+          email: authUser.email || "",
+          joinedDate: authUser.metadata?.creationTime?.split("T")[0] || "",
+        }))
+      }
+    }
+    fetchProfile()
+  }, [userId, authUser])
+
+  const handleSave = async () => {
+    if (!userId) return
+    // Set joinedDate if missing
+    let joinedDate = profile.joinedDate
+    if (!joinedDate && authUser?.metadata?.creationTime) {
+      joinedDate = authUser.metadata.creationTime.split("T")[0]
+    }
+    await setDoc(doc(db, "users", userId), { ...profile, joinedDate }, { merge: true })
+    setProfile((prev) => ({ ...prev, joinedDate }))
     setIsEditing(false)
-    // Here you would typically save to backend
   }
 
   return (
@@ -51,7 +97,11 @@ export default function ProfilePage() {
             <CardHeader className="text-center pb-6">
               <div className="flex items-center justify-center mb-4">
                 <Avatar className="h-24 w-24 bg-blue-600">
-                  <AvatarFallback className="bg-blue-600 text-white text-2xl font-bold">JD</AvatarFallback>
+                  <AvatarFallback className="bg-blue-600 text-white text-2xl font-bold">
+                    {profile.name
+                      ? profile.name.split(" ").map((n) => n[0]).join("").toUpperCase()
+                      : (profile.email || "?").slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
               </div>
               <CardTitle className="text-2xl">My Profile</CardTitle>
@@ -83,7 +133,7 @@ export default function ProfilePage() {
                   <Label htmlFor="name">Full Name</Label>
                   <Input
                     id="name"
-                    value={profile.name}
+                    value={profile.name || authUser?.displayName || ""}
                     onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                     disabled={!isEditing}
                     className={!isEditing ? "bg-gray-50" : ""}
@@ -95,7 +145,7 @@ export default function ProfilePage() {
                   <Input
                     id="email"
                     type="email"
-                    value={profile.email}
+                    value={profile.email || authUser?.email || ""}
                     onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                     disabled={!isEditing}
                     className={!isEditing ? "bg-gray-50" : ""}

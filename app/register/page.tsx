@@ -13,6 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Mail, Lock, User, ArrowLeft, Receipt, Eye, EyeOff, CheckCircle } from "lucide-react"
 import { createUserWithEmailAndPassword } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import { db } from "@/lib/firebase"
+import { setDoc, doc } from "firebase/firestore"
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -68,6 +70,14 @@ export default function RegisterPage() {
     setErrors({})
     try {
       await createUserWithEmailAndPassword(auth, formData.email, formData.password)
+      const user = auth.currentUser;
+      if (user) {
+        await setDoc(doc(db, "users", user.uid), {
+          id: user.uid,
+          name: formData.name,
+          email: formData.email,
+        });
+      }
       setIsLoading(false)
       router.push("/dashboard")
     } catch (error: any) {
