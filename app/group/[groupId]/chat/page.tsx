@@ -54,6 +54,23 @@ export default function GroupChatPage() {
     return member?.name || member?.email || fallback || "Unknown"
   }
 
+  function getDateLabel(date: Date) {
+    const now = new Date();
+    const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diff = (today.getTime() - msgDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Yesterday";
+    return msgDate.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  }
+
+  // Helper to get the date (midnight) from a timestamp
+  function getDateFromTimestamp(ts: any): Date | null {
+    if (!ts?.seconds) return null;
+    const d = new Date(ts.seconds * 1000);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#e6effc]">
       {/* Header */}
@@ -78,30 +95,43 @@ export default function GroupChatPage() {
               const displayName = getDisplayName(msg.senderId, msg.senderName)
               // Show avatar if first message or previous message is from a different user
               const showAvatar = idx === 0 || arr[idx - 1].senderId !== msg.senderId
+              // Date separator logic
+              const msgDate = getDateFromTimestamp(msg.timestamp)
+              const prevMsgDate = idx === 0 ? null : getDateFromTimestamp(arr[idx - 1].timestamp)
+              const showDateSeparator = idx === 0 || (msgDate && prevMsgDate && msgDate.getTime() !== prevMsgDate.getTime())
               return (
-                <div key={msg.id} className={`flex w-full ${isMe ? "justify-end" : "justify-start"} items-start mb-2`}> 
-                  {/* Incoming message: avatar on left, white bubble */}
-                  {!isMe && (
-                    <div className={`hidden sm:block ${showAvatar ? '' : 'invisible'} mr-2`}>
-                      <Avatar className="h-12 w-12">
-                        <AvatarFallback className="bg-gradient-to-r from-blue-600 to-green-500 text-white font-semibold text-2xl flex items-center justify-center">
-                          {displayName?.split(" ").map((n: string) => n[0]).join("") || "?"}
-                        </AvatarFallback>
-                      </Avatar>
+                <>
+                  {showDateSeparator && msgDate && (
+                    <div className="w-full flex justify-center my-2">
+                      <span className="bg-white/80 text-gray-500 text-xs px-4 py-1 rounded-full shadow-sm border border-gray-200">
+                        {getDateLabel(msgDate)}
+                      </span>
                     </div>
                   )}
-                  <div className={`max-w-[70%] ${isMe ? "ml-auto" : ""}`}> 
-                    <div className={`rounded-2xl px-5 py-3 shadow-md whitespace-pre-line ${isMe ? "bg-gradient-to-r from-[#b6e6ea] to-[#d2f6ef] text-gray-900 rounded-br-2xl text-right" : "bg-white text-gray-900 border border-gray-200 rounded-bl-2xl"}`} style={{minWidth: 80}}>
-                      {!isMe && (
-                        <div className="font-semibold mb-1 text-xs text-[#075e54] opacity-90">{displayName}</div>
-                      )}
-                      <div className="break-words text-base">{msg.text}</div>
-                      <div className="text-[10px] opacity-60 mt-1 text-right font-mono">{msg.timestamp?.seconds ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}</div>
+                  <div key={msg.id} className={`flex w-full ${isMe ? "justify-end" : "justify-start"} items-start mb-2`}> 
+                    {/* Incoming message: avatar on left, white bubble */}
+                    {!isMe && (
+                      <div className={`hidden sm:block ${showAvatar ? '' : 'invisible'} mr-2`}>
+                        <Avatar className="h-12 w-12">
+                          <AvatarFallback className="bg-gradient-to-r from-blue-600 to-green-500 text-white font-semibold text-2xl flex items-center justify-center">
+                            {displayName?.split(" ").map((n: string) => n[0]).join("") || "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+                    )}
+                    <div className={`max-w-[70%] ${isMe ? "ml-auto" : ""}`}> 
+                      <div className={`rounded-2xl px-5 py-3 shadow-md whitespace-pre-line ${isMe ? "bg-gradient-to-r from-[#b6e6ea] to-[#d2f6ef] text-gray-900 rounded-br-2xl text-right" : "bg-white text-gray-900 border border-gray-200 rounded-bl-2xl"}`} style={{minWidth: 80}}>
+                        {!isMe && (
+                          <div className="font-semibold mb-1 text-xs text-[#075e54] opacity-90">{displayName}</div>
+                        )}
+                        <div className="break-words text-base">{msg.text}</div>
+                        <div className="text-[10px] opacity-60 mt-1 text-right font-mono">{msg.timestamp?.seconds ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}</div>
+                      </div>
                     </div>
+                    {/* Outgoing message: no avatar */}
+                    {isMe && <div className="w-12 hidden sm:block" />} 
                   </div>
-                  {/* Outgoing message: no avatar */}
-                  {isMe && <div className="w-12 hidden sm:block" />} 
-                </div>
+                </>
               )
             })}
           <div ref={messagesEndRef} />

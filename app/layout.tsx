@@ -2,6 +2,14 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import Link from "next/link"
+import { Receipt } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { useEffect, useState } from "react"
+import { auth } from "@/lib/firebase"
+import ConditionalFooter from "@/components/conditionalfooter"
+import ConditionalNavbar from "@/components/conditionalnavbar"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -17,7 +25,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <head>
+        <link rel="icon" href="/images/billspliterfavicon.png" type="image/png" />
+      </head>
+      <body className={inter.className}>
+        <ConditionalNavbar />
+        <div className="pt-16">
+          {children}
+        </div>
+        <ConditionalFooter />
+      </body>
     </html>
   )
 }

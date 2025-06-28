@@ -1,15 +1,40 @@
+"use client"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Users, Calculator, CreditCard, ArrowRight, CheckCircle, Receipt, TrendingUp } from "lucide-react"
+import { Users, Calculator, CreditCard, ArrowRight, CheckCircle, Receipt, TrendingUp, Menu } from "lucide-react"
+import { useEffect, useState } from "react"
+import { auth } from "@/lib/firebase"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { useRouter } from "next/navigation"
 
 export default function LandingPage() {
+  const [user, setUser] = useState<any>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((u) => {
+      setUser(u)
+      setAuthLoading(false)
+    })
+    return () => unsubscribe()
+  }, [])
+
   return (
     <div className="min-h-screen overflow-hidden">
       {/* Hero Section with seamless gradient */}
       <div className="bg-gradient-to-b from-slate-50 via-blue-50 via-blue-100 to-blue-150">
         {/* Header */}
-        <header className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 relative z-10">
+        {/* <header className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 relative z-10">
           <nav className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-3 animate-fade-in">
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center animate-bounce-gentle">
@@ -18,19 +43,52 @@ export default function LandingPage() {
               <span className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">BillSplitr</span>
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
-              <Link href="/login">
-                <Button variant="ghost" className="text-sm sm:text-base text-gray-600 hover:text-gray-900 px-2 sm:px-4">
-                  Login
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 sm:px-6 py-2 rounded-lg font-medium text-sm sm:text-base transition-all duration-300 hover:scale-105 hover:shadow-lg">
-                  Get Started
-                </Button>
-              </Link>
+              {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Avatar className="h-9 w-9 bg-gradient-to-r from-blue-600 to-green-500 text-white cursor-pointer">
+                      <AvatarFallback className="bg-gradient-to-r from-blue-600 to-green-500 text-white font-bold text-lg flex items-center justify-center">
+                        {user && user.displayName
+                          ? user.displayName.split(" ").map((n: string) => n[0]).join("")
+                          : user && user.email
+                            ? user.email.slice(0, 2).toUpperCase()
+                            : "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile" className="w-full">View Profile</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard" className="w-full">Dashboard</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings" className="w-full">Settings</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { auth.signOut(); setUser(null); }}>Sign Out</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button variant="ghost" className="text-sm sm:text-base text-gray-600 hover:text-gray-900 px-2 sm:px-4">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 sm:px-6 py-2 rounded-lg font-medium text-sm sm:text-base transition-all duration-300 hover:scale-105 hover:shadow-lg">
+                      Get Started
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
-        </header>
+        </header> */}
 
         {/* Floating Background Elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -41,7 +99,7 @@ export default function LandingPage() {
         </div>
 
         {/* Hero Content */}
-        <section className="container mx-auto px-4 sm:px-6 py-8 sm:py-16 lg:py-20 relative z-10">
+        <section className="container mx-auto px-8 sm:px-20 py-8 sm:py-16 lg:py-20 relative z-10">
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
             {/* Left Content */}
             <div className="space-y-6 sm:space-y-8 animate-slide-in-left">
@@ -62,15 +120,26 @@ export default function LandingPage() {
 
               {/* CTA Button - Removed Watch Demo */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 animate-fade-in-delayed-2">
-                <Link href="/register">
-                  <Button
-                    size="lg"
-                    className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 animate-pulse-gentle"
-                  >
-                    Start Splitting Bills
-                    <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover:translate-x-1" />
-                  </Button>
-                </Link>
+                <Button
+                  size="lg"
+                  className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 animate-pulse-gentle"
+                  onClick={() => {
+                    if (authLoading) return;
+                    if (user) {
+                      router.push("/dashboard")
+                    } else {
+                      router.push("/register")
+                    }
+                  }}
+                  disabled={authLoading}
+                >
+                  {authLoading ? "Loading..." : (
+                    <>
+                      Start Splitting Bills
+                      <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover:translate-x-1" />
+                    </>
+                  )}
+                </Button>
               </div>
 
               {/* Feature Points */}
@@ -213,7 +282,7 @@ export default function LandingPage() {
           <div className="text-center mb-12 sm:mb-16 animate-fade-in-up">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Why Choose BillSplitr?</h2>
             <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">
-              Everything you need to manage group expenses effortlessly
+              Built for real groups, with modern features and seamless experience.
             </p>
           </div>
 
@@ -222,37 +291,37 @@ export default function LandingPage() {
               {
                 icon: Users,
                 title: "Group Management",
-                desc: "Create groups for trips, roommates, or any shared expenses. Invite members easily and manage permissions.",
+                desc: "Add only registered users, manage members, and control group access as the owner.",
                 delay: "",
               },
               {
                 icon: Calculator,
-                title: "Smart Calculations",
-                desc: "Automatically calculate who owes what with intelligent splitting algorithms. No more manual math.",
+                title: "Smart Equal Splitting",
+                desc: "Expenses are split equally among all group members, with clear balance and settlement logic.",
                 delay: "animation-delay-100",
               },
               {
                 icon: Receipt,
-                title: "Expense Tracking",
-                desc: "Log expenses with photos, receipts, and detailed notes. Keep everything organized and transparent.",
+                title: "Payment Proof Uploads",
+                desc: "Upload payment screenshots to Cloudinary for secure, fast, and easy settlement tracking.",
                 delay: "animation-delay-200",
               },
               {
                 icon: TrendingUp,
-                title: "Visual Analytics",
-                desc: "Beautiful charts and graphs to understand spending patterns and group contributions.",
+                title: "Real-time Group Chat",
+                desc: "Chat with group members instantly, with a modern WhatsApp-style interface.",
                 delay: "animation-delay-300",
               },
               {
                 icon: CreditCard,
-                title: "Secure Settlements",
-                desc: "Upload payment proofs, track settlement history, and maintain complete financial transparency.",
+                title: "PDF Export & Reports",
+                desc: "Export group data, expenses, and settlements as a beautiful PDF summary.",
                 delay: "animation-delay-400",
               },
               {
                 icon: CheckCircle,
-                title: "Real-time Updates",
-                desc: "Everyone stays in sync with instant notifications and real-time balance updates.",
+                title: "Modern UI & Firebase Security",
+                desc: "Built with Next.js, Firebase Auth, and Firestore for a secure, seamless, and beautiful experience.",
                 delay: "animation-delay-500",
               },
             ].map((feature, index) => (
@@ -280,7 +349,7 @@ export default function LandingPage() {
             {/* Animated Background */}
             <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-blue-500 to-green-500 animate-gradient-shift"></div>
             <div className="relative z-10">
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 leading-tight animate-fade-in">
+              <h2 className="text-3xl sm:text-5xl lg:text-4xl font-bold mb-4 sm:mb-6 leading-tight animate-fade-in">
                 Ready to simplify your shared expenses?
               </h2>
               <p className="text-lg sm:text-xl mb-8 sm:mb-12 opacity-90 max-w-4xl mx-auto leading-relaxed animate-fade-in-delayed">
@@ -289,15 +358,26 @@ export default function LandingPage() {
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 mb-6 sm:mb-8 animate-fade-in-delayed-2">
-                <Link href="/register">
-                  <Button
-                    size="lg"
-                    className="w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-100 px-8 sm:px-10 py-3 sm:py-4 text-base sm:text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 min-w-[200px]"
-                  >
-                    Get Started Free
-                    <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover:translate-x-1" />
-                  </Button>
-                </Link>
+                <Button
+                  size="lg"
+                  className="w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-100 px-8 sm:px-10 py-3 sm:py-4 text-base sm:text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 min-w-[200px]"
+                  onClick={() => {
+                    if (authLoading) return;
+                    if (user) {
+                      router.push("/dashboard");
+                    } else {
+                      router.push("/register");
+                    }
+                  }}
+                  disabled={authLoading}
+                >
+                  {authLoading ? "Loading..." : (
+                    <>
+                      Get Started Free
+                      <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover:translate-x-1" />
+                    </>
+                  )}
+                </Button>
               </div>
 
               <p className="text-base sm:text-lg opacity-80 animate-fade-in-delayed-3">
@@ -309,51 +389,6 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white">
-        <div className="container mx-auto px-4 sm:px-6 py-12 sm:py-16">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
-            <div className="col-span-2 md:col-span-1 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                  <Receipt className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
-                </div>
-                <span className="text-lg sm:text-xl lg:text-2xl font-bold">BillSplitr</span>
-              </div>
-              <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
-                The easiest way to split bills and track group expenses with friends and family.
-              </p>
-            </div>
-
-            {[
-              { title: "Product", links: ["Features", "Pricing", "Demo", "Mobile App"] },
-              { title: "Company", links: ["About", "Contact", "Privacy", "Terms"] },
-              { title: "Connect", links: ["GitHub", "Twitter", "LinkedIn", "Support"] },
-            ].map((section, index) => (
-              <div key={index}>
-                <h4 className="font-semibold mb-3 sm:mb-4 text-base sm:text-lg">{section.title}</h4>
-                <ul className="space-y-2 sm:space-y-3 text-gray-400">
-                  {section.links.map((link, linkIndex) => (
-                    <li key={linkIndex}>
-                      <Link
-                        href={`/${link.toLowerCase().replace(" ", "-")}`}
-                        className="text-sm sm:text-base hover:text-white transition-colors duration-300"
-                      >
-                        {link}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          <div className="border-t border-gray-800 mt-8 sm:mt-12 pt-6 sm:pt-8 text-center text-gray-400">
-            <p className="text-sm sm:text-base">
-              &copy; 2024 BillSplitr. All rights reserved. Made with ❤️ for better expense management.
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

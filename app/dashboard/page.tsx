@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, Clock, Receipt, Settings, ArrowRight } from "lucide-react"
+import { Plus, Clock, Receipt, Settings, ArrowRight, Loader2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,6 +68,7 @@ export default function Dashboard() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [userProfile, setUserProfile] = useState<{ name: string; email: string } | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -86,44 +87,58 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
-    if (!userId) return
-    // Fetch all groups
-    getDocs(collection(db, "groups")).then(async (groupSnapshot) => {
+    if (!userId) return;
+    setLoading(true);
+    // Real-time listener for all groups
+    const unsubscribe = onSnapshot(collection(db, "groups"), async (groupSnapshot) => {
       const allGroups = groupSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
       const userGroups: Group[] = []
-      for (const group of allGroups) {
-        // Check if user is a member
-        const membersSnap = await getDocs(collection(db, "groups", group.id, "members"))
-        const members = membersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as any[]
-        if (members.some((m: any) => m.id === userId)) {
-          // Fetch expenses
-          const expensesSnap = await getDocs(collection(db, "groups", group.id, "expenses"))
-          const expenses = expensesSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as any[]
-          const totalExpenses = expenses.reduce((sum, exp: any) => sum + (exp as any).amount || 0, 0)
-          const perPerson = members.length > 0 ? Math.round(totalExpenses / members.length) : 0
-          // Calculate user's total paid
-          const totalPaid = expenses.filter(
-            (exp: any) => (exp as any).paidById === userId || (exp as any).paidBy === (members.find((m: any) => m.id === userId)?.name) || (exp as any).paidByEmail === (members.find((m: any) => m.id === userId)?.email)
-          ).reduce((sum, exp: any) => sum + (exp as any).amount || 0, 0)
-          const yourBalance = totalPaid - perPerson
-          userGroups.push({
-            ...(group as any),
-            name: (group as any).name,
-            members: members.length,
-            totalExpenses,
-            yourBalance,
-            lastActivity: (group as any).lastActivity || "",
-            avatar: (group as any).avatar || "",
-            status: (group as any).status || "active",
-            recentExpenses: [],
-            userId: (group as any).userId,
-            createdAt: (group as any).createdAt,
-            id: group.id,
-          })
-        }
-      }
+      await Promise.all(
+        allGroups.map(async (group) => {
+          // Check if user is a member
+          const membersSnap = await getDocs(collection(db, "groups", group.id, "members"))
+          const members = membersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as any[]
+          if (members.some((m: any) => m.id === userId)) {
+            // Fetch expenses
+            const expensesSnap = await getDocs(collection(db, "groups", group.id, "expenses"))
+            const expenses = expensesSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as any[]
+            const totalExpenses = expenses.reduce((sum, exp: any) => sum + (exp as any).amount || 0, 0)
+            const perPerson = members.length > 0 ? Math.round(totalExpenses / members.length) : 0
+            // Calculate user's total paid
+            const totalPaid = expenses.filter(
+              (exp: any) => (exp as any).paidById === userId || (exp as any).paidBy === (members.find((m: any) => m.id === userId)?.name) || (exp as any).paidByEmail === (members.find((m: any) => m.id === userId)?.email)
+            ).reduce((sum, exp: any) => sum + (exp as any).amount || 0, 0)
+            const yourBalance = totalPaid - perPerson
+            // Recent expenses (last 2 by date)
+            const sortedExpenses = expenses
+              .filter(e => e.date && e.title)
+              .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
+            const recentExpenses = sortedExpenses.slice(0, 2).map(exp => ({
+              title: exp.title,
+              paidBy: exp.paidBy || "Unknown",
+              amount: exp.amount || 0,
+            }));
+            userGroups.push({
+              ...(group as any),
+              name: (group as any).name,
+              members: members.length,
+              totalExpenses,
+              yourBalance,
+              lastActivity: (group as any).lastActivity || "",
+              avatar: (group as any).avatar || "",
+              status: (group as any).status || "active",
+              recentExpenses,
+              userId: (group as any).userId,
+              createdAt: (group as any).createdAt,
+              id: group.id,
+            })
+          }
+        })
+      )
       setGroups(userGroups)
+      setLoading(false)
     })
+    return () => unsubscribe()
   }, [userId])
 
   const createGroup = async () => {
@@ -147,13 +162,16 @@ export default function Dashboard() {
     }
     const groupRef = await addDoc(collection(db, "groups"), newGroup)
     // Add creator as member
+    const userDoc = await getDocs(collection(db, "users"));
+    const userProfile = userDoc.docs.find(doc => doc.id === userId)?.data();
     await setDoc(doc(db, "groups", groupRef.id, "members", userId), {
       id: userId,
-      name: auth.currentUser?.displayName || "",
+      name: userProfile?.name || auth.currentUser?.displayName || auth.currentUser?.email || "Unknown",
       email: auth.currentUser?.email || "",
     })
     setNewGroupName("")
     setIsCreateDialogOpen(false)
+    setTimeout(() => window.location.reload(), 500);
   }
 
   const totalYouOwe = groups.reduce((sum, group) => sum + Math.max(0, -group.yourBalance), 0)
@@ -176,8 +194,14 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {loading ? (
+        <div className="flex items-center justify-center min-h-[40vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        </div>
+      ) : (
+      <>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      {/* <header className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-3">
@@ -188,120 +212,44 @@ export default function Dashboard() {
                 <span className="text-lg sm:text-xl font-bold text-gray-900">BillSplitr</span>
               </Link>
             </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              {/* Settings Dropdown - Simplified */}
+            <div className="flex items-center gap-3">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="hidden sm:flex text-gray-600 hover:text-gray-900">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Settings
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel>Settings</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" className="w-full">
-                      Account Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" className="w-full">
-                      Notifications
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/help" className="w-full">
-                      Help & Support
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/" className="w-full">
-                      Sign Out
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* User Profile Dropdown - Simplified */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="flex items-center gap-2 hover:bg-gray-100 px-2 sm:px-3 py-2 rounded-lg transition-colors"
-                  >
-                    <Avatar className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-r from-blue-600 to-green-500">
-                      <AvatarFallback className="bg-gradient-to-r from-blue-600 to-green-500 text-white text-base sm:text-lg font-bold flex items-center justify-center">
+                  <div className="cursor-pointer">
+                    <Avatar className="h-10 w-10 bg-gradient-to-r from-blue-600 to-green-500">
+                      <AvatarFallback className="bg-gradient-to-r from-blue-600 to-green-500 text-white font-bold text-lg flex items-center justify-center">
                         {userProfile?.name
                           ? userProfile.name.split(" ").map((n) => n[0]).join("").toUpperCase()
                           : (userProfile?.email || "?").slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="hidden sm:block text-sm font-medium text-gray-700">
-                      {userProfile?.name || userProfile?.email || "User"}
-                    </span>
-                  </Button>
+                  </div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/profile" className="w-full">
-                      View Profile
-                    </Link>
+                    <Link href="/dashboard" className="w-full">Dashboard</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/settings" className="w-full">
-                      Account Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/" className="w-full">
-                      Sign Out
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Mobile Settings Button - Simplified */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="sm:hidden text-gray-600 hover:text-gray-900">
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel>Settings</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" className="w-full">
-                      Account Settings
-                    </Link>
+                    <Link href="/profile" className="w-full">View Profile</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/settings" className="w-full">
-                      Notifications
-                    </Link>
+                    <Link href="/settings" className="w-full">Settings</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/help" className="w-full">Help & Support</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/help" className="w-full">
-                      Help & Support
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/" className="w-full">
-                      Sign Out
-                    </Link>
+                    <Link href="/" className="w-full">Sign Out</Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
         </div>
-      </header>
+      </header> */}
 
       <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Stats Cards */}
@@ -412,7 +360,7 @@ export default function Dashboard() {
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="text-xl sm:text-2xl font-bold text-white mb-1">{group.name}</h3>
-                      <p className="text-white/80 text-sm sm:text-base">{group.members} members</p>
+                      <p className="text-xs sm:text-sm text-gray-200">{group.members} members</p>
                     </div>
                     <Badge className={`${getStatusColor(group.status)} text-xs border-0`}>{group.status}</Badge>
                   </div>
@@ -422,7 +370,7 @@ export default function Dashboard() {
                   {/* Recent Expenses */}
                   {group.recentExpenses.length > 0 && (
                     <div className="space-y-3 sm:space-y-4">
-                      {group.recentExpenses.slice(0, 2).map((expense, index) => (
+                      {group.recentExpenses.map((expense, index) => (
                         <div key={index} className="flex items-center justify-between">
                           <div>
                             <h4 className="font-semibold text-gray-900 text-sm sm:text-base">{expense.title}</h4>
@@ -471,11 +419,11 @@ export default function Dashboard() {
                   <div className="flex justify-between items-center text-sm text-gray-600 pt-2 border-t border-gray-100">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      <span className="text-xs sm:text-sm">{
-                        typeof group.lastActivity === 'object' && group.lastActivity !== null && (group.lastActivity as any).seconds
-                          ? formatRelativeTime(new Date((group.lastActivity as any).seconds * 1000))
-                          : formatRelativeTime(group.lastActivity)
-                      }</span>
+                      <span className="text-xs sm:text-sm">
+                        {group.createdAt?.seconds
+                          ? `Created on: ${new Date(group.createdAt.seconds * 1000).toLocaleDateString()}`
+                          : ""}
+                      </span>
                     </div>
                     <span className="text-xs sm:text-sm font-medium">
                       ₹{group.totalExpenses.toLocaleString()} total
@@ -497,7 +445,7 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {groups.length === 0 && (
+          {groups.length === 0 && !loading && (
             <Card className="bg-white shadow-sm border-0">
               <CardContent className="p-8 sm:p-12 text-center">
                 <div className="text-4xl sm:text-6xl mb-4">👥</div>
@@ -514,6 +462,7 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+      </>) }
     </div>
   )
 }

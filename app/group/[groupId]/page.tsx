@@ -12,21 +12,24 @@ import {
   Users,
   DollarSign,
   Receipt,
-  Settings,
   ImageIcon,
   CheckCircle,
   Clock,
   TrendingUp,
 } from "lucide-react"
 import { useEffect, useState, useRef } from "react"
-import { doc, getDoc, collection, onSnapshot, getDocs, setDoc, deleteDoc, Timestamp, addDoc, serverTimestamp } from "firebase/firestore"
+import { doc, getDoc, collection, onSnapshot, getDocs, setDoc, deleteDoc, Timestamp, addDoc, serverTimestamp, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { auth } from "@/lib/firebase"
 import { Input } from "@/components/ui/input"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
+import { useRequireVerifiedUser } from "@/hooks/useRequireVerifiedUser"
+import { uploadToCloudinary } from "@/lib/cloudinary"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 
 export default function GroupDetailPage() {
+  useRequireVerifiedUser()
   const params = useParams()
   const groupId = params.groupId as string
 
@@ -46,6 +49,13 @@ export default function GroupDetailPage() {
   const [showAdminOnlyModal, setShowAdminOnlyModal] = useState(false)
   const [renameValue, setRenameValue] = useState("")
   const [showExporting, setShowExporting] = useState(false)
+  const [showProofModal, setShowProofModal] = useState(false)
+  const [proofFile, setProofFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
+  const [pendingPayment, setPendingPayment] = useState<{toId: string, to: string, amount: number} | null>(null)
+  const [payments, setPayments] = useState<any[]>([])
+  const [userProfile, setUserProfile] = useState<any>(null)
 
   useEffect(() => {
     if (!groupId) return
@@ -67,13 +77,25 @@ export default function GroupDetailPage() {
       setMembers(fetchedMembers)
       // Add current user as member if not present
       if (user && !fetchedMembers.some((m) => m.id === user.uid)) {
+        // Fetch user profile from Firestore
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const userProfile = userDoc.exists() ? userDoc.data() : {};
         const newMember = {
           id: user.uid,
-          name: user.displayName || user.email || "Unknown",
+          name: userProfile.name || user.displayName || user.email || "Unknown",
           email: user.email || "",
         }
         await setDoc(doc(db, "groups", groupId, "members", user.uid), newMember)
         setMembers([...fetchedMembers, newMember])
+        // If group document does not have userId or creator info, set it
+        const groupDoc = await getDoc(doc(db, "groups", groupId))
+        if (groupDoc.exists() && (!groupDoc.data().userId || !groupDoc.data().creatorName)) {
+          await setDoc(doc(db, "groups", groupId), {
+            ...groupDoc.data(),
+            userId: user.uid,
+            creatorName: userProfile.name || user.displayName || user.email || "Unknown",
+          })
+        }
       }
     })
 
@@ -89,9 +111,16 @@ export default function GroupDetailPage() {
       setChatMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })))
     })
 
+    // Listen for payments in this group
+    const paymentsRef = collection(db, "groups", groupId, "payments")
+    const unsubscribePayments = onSnapshot(paymentsRef, (snapshot) => {
+      setPayments(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })))
+    })
+
     return () => {
       unsubscribe()
       unsubscribeMessages()
+      unsubscribePayments()
     }
   }, [groupId])
 
@@ -99,34 +128,40 @@ export default function GroupDetailPage() {
   const totalExpenses = expenses.reduce((sum: number, exp: any) => sum + (exp.amount || 0), 0)
   const perPerson = members.length > 0 ? Math.round(totalExpenses / members.length) : 0
 
-  // Compute member stats from expenses (equal split among all members)
+  // Only accepted payments are considered settled
+  const acceptedPayments = payments.filter((p) => p.status === "accepted")
+
+  // Compute member stats from expenses (equal split among all members) and accepted payments
   const membersWithStats = members.map((member: any) => {
     // Find all expenses paid by this member
-    const payments = expenses.filter(
+    const paymentsMade = expenses.filter(
       (expense: any) =>
         expense.paidById === member.id ||
         expense.paidBy === member.name ||
         expense.paidByEmail === member.email
     )
+    // Add accepted payments made by this member (by userId)
+    const acceptedPaid = acceptedPayments.filter((p) => p.fromId === member.id)
     // Total paid by this member
-    const totalPaid = payments.reduce((sum: number, exp: any) => sum + (exp.amount || 0), 0)
+    const totalPaid = paymentsMade.reduce((sum: number, exp: any) => sum + (exp.amount || 0), 0) +
+      acceptedPaid.reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
     // Share of expenses is always perPerson (equal split)
     const shareOfExpenses = perPerson
     // Net balance
     const balance = Math.round(totalPaid - shareOfExpenses)
     return {
       ...member,
-      payments,
+      payments: paymentsMade,
       totalPaid,
       totalOwed: shareOfExpenses,
       balance,
     }
   })
 
-  // Compute minimal transactions to settle balances
+  // Compute minimal transactions to settle balances (use member.id)
   function getSettlementTransactions(members: any[]) {
     // Clone and sort members by balance
-    const balances = members.map(m => ({ name: m.name, balance: m.balance })).filter(m => m.balance !== 0)
+    const balances = members.map(m => ({ id: m.id, name: m.name, balance: m.balance })).filter(m => m.balance !== 0)
     const debtors = [...balances].filter(m => m.balance < 0).sort((a, b) => a.balance - b.balance)
     const creditors = [...balances].filter(m => m.balance > 0).sort((a, b) => b.balance - a.balance)
     const transactions = []
@@ -136,7 +171,7 @@ export default function GroupDetailPage() {
       const creditor = creditors[j]
       const amount = Math.min(-debtor.balance, creditor.balance)
       if (amount > 0) {
-        transactions.push({ from: debtor.name, to: creditor.name, amount })
+        transactions.push({ fromId: debtor.id, from: debtor.name, toId: creditor.id, to: creditor.name, amount })
         debtor.balance += amount
         creditor.balance -= amount
       }
@@ -195,143 +230,173 @@ export default function GroupDetailPage() {
   const handleExportPDF = async () => {
     setShowExporting(true)
     const doc = new jsPDF()
-    // Logo (top right, dynamic position)
+    // Logo (top left)
     const logoImg = await fetch("/images/image.png").then(r => r.blob()).then(blob => new Promise(resolve => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result)
       reader.readAsDataURL(blob)
     }))
-    // Header
-    doc.setFontSize(28)
+    doc.addImage(logoImg as string, "PNG", 15, 10, 32, 32)
+    // Group Name below logo, left-aligned
+    doc.setFontSize(24)
     doc.setTextColor(41, 98, 255)
     doc.setFont('helvetica', 'bold')
-    const groupName = `Group Name : ${group.name || ''}`
-    // Calculate width of group name text
-    const groupNameWidth = doc.getTextWidth(groupName)
-    // Place logo at least 20 units to the right of group name, or at 170 if short
-    const logoX = Math.max(170, 20 + groupNameWidth + 10)
-    doc.text(groupName, 14, 32, { maxWidth: 140 })
-    // Draw a white background for the logo for clarity
-    doc.setFillColor(255,255,255)
-    doc.roundedRect(logoX - 2, 10, 36, 36, 6, 6, 'F')
-    doc.addImage(logoImg as string, "PNG", logoX, 12, 32, 32)
-
-    // Info box content
-    doc.setFontSize(13)
+    doc.text(`Group Name : ${group.name || ''}`, 15, 52)
+    // Info box (full width, rounded, shaded)
+    doc.setFillColor(243,244,246)
+    doc.roundedRect(15, 56, 180, 24, 8, 8, 'F')
+    doc.setFontSize(12)
     doc.setTextColor(80,80,80)
     doc.setFont('helvetica', 'normal')
+    const creatorEmail = members.find(m => m.id === group.userId)?.email || group.creatorName || group.userId || 'Unknown'
     const infoLines = [
-      `Created by: ${members.find(m => m.id === group.userId)?.name || "Unknown"}`,
-      `Group ID: ${group.id || "-"} | Created: ${group.createdAt ? new Date(group.createdAt.seconds*1000).toLocaleDateString() : "-"}`,
-      `Members: ${members.map(m => m.name).join(", ")}`
+      `Created by: ${creatorEmail}`,
+      `Group ID: ${group.id || '-'} | Created: ${group.createdAt ? new Date(group.createdAt.seconds*1000).toLocaleDateString() : '-'}`,
+      `Members: ${members.map(m => m.name || m.email || 'Unknown').join(', ')}`
     ]
-    // Wrap long member list
-    const wrappedInfoLines: string[] = []
+    let infoY = 64
     infoLines.forEach(line => {
-      const split = doc.splitTextToSize(line, 175)
-      wrappedInfoLines.push(...split)
+      doc.text(line, 21, infoY)
+      infoY += 7
     })
-    const infoBoxHeight = 10 + wrappedInfoLines.length * 9
-    // Add extra top margin if logo is lower
-    const infoBoxY = 48
-    doc.setFillColor(243,244,246)
-    doc.roundedRect(12, infoBoxY, 185, infoBoxHeight, 16, 16, 'F')
-    let infoY = infoBoxY + 12
-    wrappedInfoLines.forEach(line => {
-      doc.text(line, 18, infoY)
-      infoY += 9
-    })
-
-    // Expenses Table
-    const tableStartY = infoBoxY + infoBoxHeight + 12
-    const expenseRows = expenses.map((exp: any, i: number) => [
-      (i+1).toString(),
-      exp.title || "No title",
-      exp.amount >= 0 ? { content: `+${exp.amount.toLocaleString()}`, styles: { textColor: [34,197,94], fontStyle: 'bold' } } : { content: `-${Math.abs(exp.amount).toLocaleString()}`, styles: { textColor: [239,68,68], fontStyle: 'bold' } },
-      exp.name || "Unknown",
-      exp.date ? new Date(exp.date.seconds*1000).toLocaleDateString() : "-",
-      exp.splitBetween ? (Array.isArray(exp.splitBetween) ? exp.splitBetween.join(", ") : exp.splitBetween) : "-",
-      exp.proofUrl ? "Yes" : "-"
-    ])
-    doc.setFontSize(11)
-    doc.setFont('helvetica', 'normal')
-    autoTable(doc, {
-      startY: tableStartY,
-      head: [["#", "Title", "Amount", "Paid By", "Date", "Split Between", "Proof"]],
-      body: expenseRows,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 98, 255], textColor: 255, fontStyle: 'bold', fontSize: 12 },
-      styles: { fontSize: 11, cellPadding: 2, font: 'helvetica' },
-      alternateRowStyles: { fillColor: [248,250,252] },
-      margin: { left: 12, right: 12 },
-      tableLineColor: [203,213,225],
-      tableLineWidth: 0.2,
-    })
-
-    // Balances Table
-    let y = (doc as any).lastAutoTable.finalY + 12
+    // Expenses Section
+    let y = 86
     doc.setFontSize(15)
     doc.setTextColor(41, 98, 255)
     doc.setFont('helvetica', 'bold')
-    doc.text("Balances", 14, y)
-    const balanceRows = membersWithStats.map((m: any) => [
-      m.name,
-      m.totalPaid.toLocaleString(),
-      m.totalOwed.toLocaleString(),
-      m.balance > 0 ? { content: `+${m.balance.toLocaleString()}`, styles: { textColor: [34,197,94], fontStyle: 'bold' } } : m.balance < 0 ? { content: `-${Math.abs(m.balance).toLocaleString()}`, styles: { textColor: [239,68,68], fontStyle: 'bold' } } : { content: `0`, styles: { textColor: [55,65,81], fontStyle: 'bold' } }
-    ])
+    doc.text('Expenses', 15, y)
+    y += 2
     doc.setFontSize(11)
     doc.setFont('helvetica', 'normal')
     autoTable(doc, {
       startY: y + 4,
-      head: [["Name", "Paid", "Owes", "Net"]],
-      body: balanceRows,
+      head: [["#", "Title", "Amount", "Paid By", "Date", "Split Between", "Proof"]],
+      body: expenses.map((exp, i) => [
+        (i+1).toString(),
+        exp.title || "No title",
+        exp.amount >= 0 ? { content: `+${exp.amount.toLocaleString()}`, styles: { textColor: [34,197,94], fontStyle: 'bold' } } : { content: `-${Math.abs(exp.amount).toLocaleString()}`, styles: { textColor: [239,68,68], fontStyle: 'bold' } },
+        members.find(m => m.id === exp.paidById)?.name || exp.paidBy || exp.paidByEmail || "Unknown",
+        exp.date ? new Date(exp.date.seconds*1000).toLocaleDateString() : "-",
+        exp.splitBetween ? (Array.isArray(exp.splitBetween) ? exp.splitBetween.join(", ") : exp.splitBetween) : "-",
+        exp.proofUrl ? "Yes" : "-"
+      ]),
       theme: 'grid',
       headStyles: { fillColor: [41, 98, 255], textColor: 255, fontStyle: 'bold', fontSize: 12 },
       styles: { fontSize: 11, cellPadding: 2, font: 'helvetica' },
       alternateRowStyles: { fillColor: [248,250,252] },
-      margin: { left: 12, right: 12 },
+      margin: { left: 15, right: 15 },
       tableLineColor: [203,213,225],
       tableLineWidth: 0.2,
     })
-
-    // Settlement Transactions
-    y = (doc as any).lastAutoTable.finalY + 12
+    y = (doc as any).lastAutoTable.finalY + 10
+    // Balances Section
+    doc.setFontSize(15)
+    doc.setTextColor(41, 98, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Balances', 15, y)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    autoTable(doc, {
+      startY: y + 4,
+      head: [["Name", "You Paid", "Your Share", "Balance"]],
+      body: membersWithStats.map((m: any) => [
+        m.name || m.email || 'Unknown',
+        m.totalPaid.toLocaleString(),
+        m.totalOwed.toLocaleString(),
+        m.balance > 0 ? { content: `You will receive ₹${m.balance.toLocaleString()}`, styles: { textColor: [34,197,94], fontStyle: 'bold' } } : m.balance < 0 ? { content: `You need to pay ₹${Math.abs(m.balance).toLocaleString()}`, styles: { textColor: [239,68,68], fontStyle: 'bold' } } : { content: `Settled`, styles: { textColor: [55,65,81], fontStyle: 'bold' } }
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [41, 98, 255], textColor: 255, fontStyle: 'bold', fontSize: 12 },
+      styles: { fontSize: 11, cellPadding: 2, font: 'helvetica' },
+      alternateRowStyles: { fillColor: [248,250,252] },
+      margin: { left: 15, right: 15 },
+      tableLineColor: [203,213,225],
+      tableLineWidth: 0.2,
+    })
+    y = (doc as any).lastAutoTable.finalY + 10
+    // Settlement Transactions Section
     if (settlementTransactions && settlementTransactions.length > 0) {
       doc.setFontSize(15)
       doc.setTextColor(41, 98, 255)
       doc.setFont('helvetica', 'bold')
-      doc.text("Settlement Transactions", 14, y)
-      const settleRows = settlementTransactions.map((t: any) => [
-        t.from,
-        t.to,
-        { content: t.amount.toLocaleString(), styles: { textColor: [41,98,255], fontStyle: 'bold' } }
-      ])
+      doc.text('Settlement Transactions', 15, y)
       doc.setFontSize(11)
       doc.setFont('helvetica', 'normal')
       autoTable(doc, {
         startY: y + 4,
         head: [["From", "To", "Amount"]],
-        body: settleRows,
+        body: settlementTransactions.map((t: any) => [
+          t.from,
+          t.to,
+          { content: t.amount.toLocaleString(), styles: { textColor: [41,98,255], fontStyle: 'bold' } }
+        ]),
         theme: 'grid',
         headStyles: { fillColor: [34,197,94], textColor: 255, fontStyle: 'bold', fontSize: 12 },
         styles: { fontSize: 11, cellPadding: 2, font: 'helvetica' },
         alternateRowStyles: { fillColor: [248,250,252] },
-        margin: { left: 12, right: 12 },
+        margin: { left: 15, right: 15 },
         tableLineColor: [203,213,225],
         tableLineWidth: 0.2,
       })
-      y = (doc as any).lastAutoTable.finalY + 12
+      y = (doc as any).lastAutoTable.finalY + 10
     }
-
     // Footer
     doc.setFontSize(11)
     doc.setTextColor(180, 180, 180)
     doc.setFont('helvetica', 'normal')
     doc.text("Generated by BillSplittr", 105, 292, { align: "center" })
-
     doc.save(`${group.name || "group"}-billsplitr.pdf`)
     setShowExporting(false)
+  }
+
+  // Mark as Paid handler (save userId)
+  const handleMarkAsPaid = (toId: string, toName: string, amount: number) => {
+    setPendingPayment({ toId, to: toName, amount })
+    setShowProofModal(true)
+    setProofFile(null)
+  }
+
+  // Handle payment proof upload (save fromId/toId)
+  const handleProofSubmit = async () => {
+    if (!proofFile) return
+    // Check file size (5MB limit)
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (proofFile.size > maxSize) {
+      setSuccessMsg('File too large! Please use an image under 5MB.')
+      setTimeout(() => setSuccessMsg(''), 3000)
+      return
+    }
+    setIsUploading(true)
+    let proofUrl = ''
+    if (proofFile && pendingPayment) {
+      proofUrl = await uploadToCloudinary(proofFile)
+    }
+    if (pendingPayment) {
+      await addDoc(collection(db, "groups", groupId, "payments"), {
+        fromId: user?.uid,
+        from: userProfile?.name || user?.displayName || user?.email || "Unknown",
+        toId: pendingPayment.toId,
+        to: pendingPayment.to,
+        amount: pendingPayment.amount,
+        proofUrl,
+        status: "pending",
+        createdAt: serverTimestamp(),
+      })
+    }
+    setIsUploading(false)
+    setShowProofModal(false)
+    setPendingPayment(null)
+    setProofFile(null)
+    setSuccessMsg('Payment submitted for approval!')
+    setTimeout(() => setSuccessMsg(''), 3000)
+  }
+
+  // Accept payment handler
+  const handleAcceptPayment = async (paymentId: string) => {
+    const paymentDoc = doc(db, "groups", groupId, "payments", paymentId)
+    await updateDoc(paymentDoc, { status: "accepted" })
+    setSuccessMsg('Payment accepted!')
+    setTimeout(() => setSuccessMsg(''), 3000)
   }
 
   if (loading || !group) {
@@ -340,44 +405,64 @@ export default function GroupDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Group Header */}
+
+      <div className="container mx-auto px-4 sm:px-6 pt-8 pb-4">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-1">Group : {group.name}</h1>
+        {group.createdAt && (
+          <p className="text-sm text-gray-500 font-medium">
+            Created on: {new Date(group.createdAt.seconds * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
+        )}
+      </div>
+
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      {/* <header className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <Link href="/dashboard">
-                <Button variant="ghost" size="sm" className="flex-shrink-0">
-                  <ArrowLeft className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Back to Dashboard</span>
-                  <span className="sm:hidden">Back</span>
-                </Button>
-              </Link>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{group.name || "Group"}</h1>
-                <p className="text-xs sm:text-sm text-gray-600">{group.members || 0} members</p>
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <Receipt className="h-5 w-5 text-white" />
               </div>
+              <span className="text-xl font-bold text-gray-900 truncate">BillSplitr</span>
+            </Link>
+            <div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <div className="cursor-pointer">
+                    <Avatar className="h-10 w-10 bg-gradient-to-r from-blue-600 to-green-500">
+                      <AvatarFallback className="bg-gradient-to-r from-blue-600 to-green-500 text-white font-bold text-lg flex items-center justify-center">
+                        {user && (user.displayName
+                          ? user.displayName.split(" ").map((n) => n[0]).join("").toUpperCase()
+                          : user.email
+                            ? user.email.slice(0, 2).toUpperCase()
+                            : "U")}
+                      </AvatarFallback>
+                    </Avatar>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Link href={`/group/${groupId}/add`}>
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-xs sm:text-sm"
-                >
-                  <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Add Expense</span>
-                  <span className="sm:hidden">Add</span>
-                </Button>
-              </Link>
-              <Link href={`/group/${groupId}/settle`}>
-                <Button variant="outline" size="sm" className="text-xs sm:text-sm">
-                  <span className="hidden sm:inline">Settle Up</span>
-                  <span className="sm:hidden">Settle</span>
-                </Button>
-              </Link>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="w-full">View Profile</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="w-full">Settings</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/help" className="w-full">Help & Support</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/" className="w-full">Sign Out</Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
-      </header>
+      </header> */}
 
       <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Group Overview Cards */}
@@ -428,20 +513,20 @@ export default function GroupDetailPage() {
         {/* Main Content Tabs */}
         <Tabs defaultValue="members" className="space-y-4 sm:space-y-6">
           <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-auto">
-            <TabsTrigger value="members" className="text-xs sm:text-sm px-2 sm:px-4 py-2">
+            <TabsTrigger value="members" className="text-sm sm:text-base px-2 sm:px-4 py-2">
               <span className="hidden sm:inline">Members & Payments</span>
               <span className="sm:hidden">Members</span>
             </TabsTrigger>
-            <TabsTrigger value="expenses" className="text-xs sm:text-sm px-2 sm:px-4 py-2">
+            <TabsTrigger value="expenses" className="text-sm sm:text-base px-2 sm:px-4 py-2">
               Expenses
             </TabsTrigger>
-            <TabsTrigger value="balances" className="text-xs sm:text-sm px-2 sm:px-4 py-2">
+            <TabsTrigger value="balances" className="text-sm sm:text-base px-2 sm:px-4 py-2">
               Balances
             </TabsTrigger>
-            <TabsTrigger value="chat" className="text-xs sm:text-sm px-2 sm:px-4 py-2">
+            <TabsTrigger value="chat" className="text-sm sm:text-base px-2 sm:px-4 py-2">
               Chat
             </TabsTrigger>
-            <TabsTrigger value="settings" className="text-xs sm:text-sm px-2 sm:px-4 py-2">
+            <TabsTrigger value="settings" className="text-sm sm:text-base px-2 sm:px-4 py-2">
               Settings
             </TabsTrigger>
           </TabsList>
@@ -578,28 +663,28 @@ export default function GroupDetailPage() {
                               >
                                 {/* Icon on the left */}
                                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100/60 rounded-full flex items-center justify-center flex-shrink-0">
-                                  <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
-                                </div>
+                                    <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
+                                  </div>
                                 {/* Middle: Amount, date, status */}
                                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                                   <p className="text-xl sm:text-2xl font-bold text-green-600">₹{payment?.amount ? payment.amount.toLocaleString() : "0"}</p>
                                   <span className="text-xs sm:text-sm text-gray-600 flex items-center gap-1 mt-1 mb-1">
-                                    <Clock className="h-3 w-3" />
-                                    {payment?.date ? new Date(payment.date.seconds * 1000).toLocaleDateString() : "No date"}
+                                      <Clock className="h-3 w-3" />
+                                      {payment?.date ? new Date(payment.date.seconds * 1000).toLocaleDateString() : "No date"}
                                   </span>
                                   <p className="text-sm sm:text-base text-gray-500 font-medium">Payment confirmed</p>
                                 </div>
                                 {/* Proof button on the right */}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
                                   className={`w-8 h-8 sm:w-10 sm:h-10 p-0 rounded-full ml-2 flex-shrink-0 ${payment.proofUrl ? 'bg-blue-50 border-blue-200 hover:bg-blue-100 cursor-pointer' : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'}`}
                                   onClick={() => payment.proofUrl && setImageModalUrl(payment.proofUrl)}
                                   disabled={!payment.proofUrl}
                                   aria-label="View payment proof"
-                                >
+                                  >
                                   <ImageIcon className={`h-4 w-4 ${payment.proofUrl ? 'text-blue-600' : 'text-gray-400'}`} />
-                                </Button>
+                                  </Button>
                               </div>
                             ))}
                           </div>
@@ -683,7 +768,7 @@ export default function GroupDetailPage() {
                           <span className="font-bold text-2xl sm:text-3xl text-gray-900">₹{amount.toLocaleString()}</span>
                           <span className="text-xs sm:text-sm text-gray-500 mt-1">₹{perPerson.toLocaleString()} per person</span>
                         </div>
-                      </div>
+                    </div>
                     );
                   })}
                 </div>
@@ -697,7 +782,7 @@ export default function GroupDetailPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                   <div>
                     <CardTitle className="text-lg sm:text-xl">Group Balances</CardTitle>
-                    <CardDescription className="text-sm sm:text-base">Who owes what to whom</CardDescription>
+                    <CardDescription className="text-sm sm:text-base">Who needs to pay or receive</CardDescription>
                   </div>
                   <Link href={`/group/${groupId}/settle`}>
                     <Button size="sm" className="text-xs sm:text-sm">
@@ -712,11 +797,39 @@ export default function GroupDetailPage() {
                   <div className="mb-6">
                     <h4 className="font-semibold text-base sm:text-lg mb-2">Settlement Summary</h4>
                     <ul className="space-y-1">
-                      {settlementTransactions.map((t, idx) => (
-                        <li key={idx} className="text-sm sm:text-base text-gray-700">
-                          <span className="font-semibold text-red-600">{t.from}</span> pays <span className="font-semibold text-green-600">{t.to}</span> <span className="font-semibold">₹{t.amount.toLocaleString()}</span>
-                        </li>
-                      ))}
+                      {settlementTransactions.map((t, idx) => {
+                        // Find payment for this transaction (fromId->toId, amount)
+                        const userPayment = payments.find(
+                          (p) => p.fromId === t.fromId && p.toId === t.toId && p.amount === t.amount
+                        )
+                        const isOwner = user?.uid === group?.userId
+                        const isCurrentUser = user?.uid === t.fromId
+                        return (
+                          <li key={idx} className="text-sm sm:text-base text-gray-700 flex items-center gap-2">
+                            <span className="font-semibold text-red-600">{t.from}</span> pays <span className="font-semibold text-green-600">{t.to}</span> <span className="font-semibold">₹{t.amount.toLocaleString()}</span>
+                            {/* If current user is the debtor, show status or mark as paid */}
+                            {isCurrentUser && (
+                              userPayment ? (
+                                userPayment.status === "pending" ? (
+                                  <span className="ml-2 px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs font-semibold">Pending</span>
+                                ) : userPayment.status === "accepted" ? (
+                                  <span className="ml-2 px-2 py-1 rounded bg-green-100 text-green-800 text-xs font-semibold">Settled up!</span>
+                                ) : null
+                              ) : (
+                                <Button size="sm" className="ml-2 bg-gradient-to-r from-blue-600 to-green-500 text-white" onClick={() => handleMarkAsPaid(t.toId, t.to, t.amount)}>
+                                  Mark as Paid
+                                </Button>
+                              )
+                            )}
+                            {/* If owner and payment is pending, show Accept button */}
+                            {isOwner && userPayment && userPayment.status === "pending" && (
+                              <Button size="sm" className="ml-2 bg-gradient-to-r from-green-600 to-blue-500 text-white" onClick={() => handleAcceptPayment(userPayment.id)}>
+                                Accept
+                              </Button>
+                            )}
+                          </li>
+                        )
+                      })}
                     </ul>
                   </div>
                 ) : (
@@ -735,7 +848,11 @@ export default function GroupDetailPage() {
                           <span className="font-semibold text-sm sm:text-base">{member?.name || "Unknown"}</span>
                         </div>
                         <div className={`font-bold text-base sm:text-lg ${member?.balance > 0 ? "text-green-600" : member?.balance < 0 ? "text-red-600" : "text-gray-600"}`}>
-                          {member?.balance > 0 ? "+" : ""}₹{Math.abs(member?.balance ?? 0).toLocaleString()}
+                          {member?.balance > 0
+                            ? `You will receive ₹${Math.abs(member?.balance ?? 0).toLocaleString()}`
+                            : member?.balance < 0
+                              ? `You need to pay ₹${Math.abs(member?.balance ?? 0).toLocaleString()}`
+                              : "Settled"}
                         </div>
                       </div>
 
@@ -743,6 +860,28 @@ export default function GroupDetailPage() {
                     </div>
                   ))}
                 </div>
+                {/* Show pending payments for approval */}
+                {payments.filter(p => p.status === "pending" && (user?.uid === group?.userId || p.toId === user?.uid)).length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="font-semibold text-base sm:text-lg mb-2 text-orange-600">Pending Payments for Approval</h4>
+                    <ul className="space-y-2">
+                      {payments.filter(p => p.status === "pending" && (user?.uid === group?.userId || p.toId === user?.uid)).map((p) => (
+                        <li key={p.id} className="flex items-center gap-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                          <div className="flex-1">
+                            <div className="font-semibold text-gray-900">{p.from} → {p.to}</div>
+                            <div className="text-gray-700">Amount: ₹{p.amount}</div>
+                            {p.proofUrl && (
+                              <img src={p.proofUrl} alt="Proof" className="mt-2 rounded max-h-24 border" />
+                            )}
+                          </div>
+                          <Button size="sm" className="bg-gradient-to-r from-green-600 to-blue-500 text-white" onClick={() => handleAcceptPayment(p.id)}>
+                            Accept
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -750,7 +889,6 @@ export default function GroupDetailPage() {
           <TabsContent value="chat" className="space-y-4 sm:space-y-6">
             <div className="flex flex-col items-center justify-center py-12">
               <p className="text-lg font-semibold mb-2">Group Chat is now a dedicated page!</p>
-              <p className="text-gray-500 mb-4">Click below to open the WhatsApp-style chat experience.</p>
               <Link href={`/group/${groupId}/chat`}>
                 <Button size="lg" className="bg-gradient-to-r from-blue-600 to-green-500 text-white font-bold shadow">Open Group Chat</Button>
               </Link>
@@ -761,7 +899,7 @@ export default function GroupDetailPage() {
             <Card className="bg-white shadow-sm border-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                  <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                   Group Settings
                 </CardTitle>
                 <CardDescription className="text-sm sm:text-base">Manage group preferences and members</CardDescription>
@@ -824,7 +962,7 @@ export default function GroupDetailPage() {
                           {group?.userId === user?.uid && member.id !== user?.uid && (
                             <Button variant="destructive" size="sm" onClick={() => handleRemoveMember(member.id)}>
                               Remove
-                            </Button>
+                  </Button>
                           )}
                         </li>
                       ))}
@@ -839,9 +977,12 @@ export default function GroupDetailPage() {
                   <Button variant="outline" className="w-full justify-start text-sm sm:text-base" onClick={handleExportPDF} disabled={showExporting}>
                     {showExporting ? "Exporting..." : "Export Group Data"}
                   </Button>
+                  {/* Only show delete/close group for owner */}
+                  {group?.userId === user?.uid && (
                   <Button variant="destructive" className="w-full justify-start text-sm sm:text-base">
-                    Leave Group
+                      Delete/Close Group
                   </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -897,6 +1038,54 @@ export default function GroupDetailPage() {
               <Button onClick={() => setShowAdminOnlyModal(false)}>OK</Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Payment Proof Modal */}
+      {showProofModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={() => setShowProofModal(false)}>
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-xs w-full relative" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-2 text-green-700">Upload Payment Screenshot</h2>
+            <p className="mb-2 text-gray-700">Upload payment screenshot as proof of settlement.</p>
+            <p className="mb-4 text-xs text-gray-500">Max file size: 5MB. Supported: JPG, PNG, GIF</p>
+            <input
+              type="file"
+              accept="image/*"
+              className="w-full border rounded p-2 mb-2"
+              onChange={e => setProofFile(e.target.files?.[0] || null)}
+            />
+            {proofFile && (
+              <div className="mb-4 p-2 bg-gray-50 rounded text-xs">
+                <p className="font-medium">Selected: {proofFile.name}</p>
+                <p className="text-gray-600">Size: {(proofFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                {proofFile.size > 5 * 1024 * 1024 && (
+                  <p className="text-red-600 font-medium">⚠️ File too large! Please choose a smaller image.</p>
+                )}
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowProofModal(false)}>Cancel</Button>
+              <Button 
+                onClick={handleProofSubmit} 
+                disabled={isUploading || !proofFile || (proofFile && proofFile.size > 5 * 1024 * 1024)} 
+                className="bg-gradient-to-r from-blue-600 to-green-500 text-white"
+              >
+                {isUploading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Uploading...
+                  </div>
+                ) : 'Submit'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {successMsg && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-xl shadow-lg z-50">
+          {successMsg}
         </div>
       )}
     </div>
