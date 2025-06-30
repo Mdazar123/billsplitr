@@ -92,7 +92,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-3 sm:p-4">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-3 sm:p-4">
       <div className="w-full max-w-sm sm:max-w-md">
         {/* Back to Home Link */}
         <div className="mb-6">
@@ -286,7 +286,7 @@ export default function RegisterPage() {
               {/* Submit Button */}
               <Button
                 type="submit"
-                className="w-full h-11 sm:h-12 bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white font-medium transition-all duration-300 text-sm sm:text-base"
+                className="w-full h-11 sm:h-12 bg-gradient-to-r from-blue-700 to-green-600 hover:from-blue-800 hover:to-green-700 text-white font-bold transition-all duration-300 text-sm sm:text-base"
                 disabled={isLoading}
               >
                 {isLoading ? (

@@ -16,7 +16,7 @@ export default function AboutUsPage() {
   const userProfile = user ? { name: user.displayName, email: user.email } : null
 
   return (
-    <div className="min-h-screen bg-[#f5f9ff] flex flex-col items-center py-10 px-2">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center py-10 px-2">
       {/* Header/Navbar (copied from dashboard) */}
 
       {/* About Us Content */}
@@ -56,34 +56,34 @@ export default function AboutUsPage() {
           <h2 className="text-3xl font-bold text-center mb-6 text-gray-900 font-sans">Meet the Creators</h2>
           <div className="flex flex-col md:flex-row gap-8 justify-center items-center">
             {/* Azhar Card */}
-            <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center w-full md:w-1/2 max-w-md">
+            <div className="bg-gradient-to-br from-blue-700 to-green-600 rounded-2xl shadow-lg p-6 flex flex-col items-center w-full md:w-1/2 max-w-md text-white">
               <img
                 src="/images/azhar.jpeg"
                 alt="MD. Azhar"
                 className="w-24 h-24 rounded-full object-cover border-4 border-green-200 mb-4 shadow"
               />
-              <h3 className="text-2xl font-bold mb-1 text-gray-900 uppercase tracking-wide font-sans">MD. AZHAR</h3>
+              <h3 className="text-2xl font-bold mb-1 text-white uppercase tracking-wide font-sans">MD. AZHAR</h3>
               <div className="flex gap-4 mb-2">
-                <Link href="https://www.linkedin.com/in/azarmohammad/" className="text-blue-700 hover:underline font-medium font-sans">LinkedIn</Link>
-                <Link href="https://github.com/Mdazar123" className="text-blue-700 hover:underline font-medium font-sans">GitHub</Link>
+                <Link href="https://www.linkedin.com/in/azarmohammad/" className="text-white hover:underline font-medium font-sans">LinkedIn</Link>
+                <Link href="https://github.com/Mdazar123" className="text-white hover:underline font-medium font-sans">GitHub</Link>
               </div>
-              <p className="text-gray-700 text-center font-sans text-lg">
+              <p className="text-white text-center font-sans text-lg">
                 A dedicated developer with a strong interest in web development, open-source, and practical AI. Azhar enjoys collaborating on innovative projects and learning new technologies to solve real-world problems.
               </p>
             </div>
             {/* Nilesh Card */}
-            <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center w-full md:w-1/2 max-w-md">
+            <div className="bg-gradient-to-br from-blue-700 to-green-600 rounded-2xl shadow-lg p-6 flex flex-col items-center w-full md:w-1/2 max-w-md text-white">
               <img
                 src="/images/nilesh.jpeg"
                 alt="E. Nilesh"
                 className="w-24 h-24 rounded-full object-cover border-4 border-blue-200 mb-4 shadow"
               />
-              <h3 className="text-2xl font-bold mb-1 text-gray-900 uppercase tracking-wide font-sans">E. NILESH</h3>
+              <h3 className="text-2xl font-bold mb-1 text-white uppercase tracking-wide font-sans">E. NILESH</h3>
               <div className="flex gap-4 mb-2">
-                <Link href="https://www.linkedin.com/in/enugandhula-nilesh-400a14226" className="text-blue-700 hover:underline font-medium font-sans">LinkedIn</Link>
-                <Link href="https://github.com/nileshsn" className="text-blue-700 hover:underline font-medium font-sans">GitHub</Link>
+                <Link href="https://www.linkedin.com/in/enugandhula-nilesh-400a14226" className="text-white hover:underline font-medium font-sans">LinkedIn</Link>
+                <Link href="https://github.com/nileshsn" className="text-white hover:underline font-medium font-sans">GitHub</Link>
               </div>
-              <p className="text-gray-700 text-center font-sans text-lg">
+              <p className="text-white text-center font-sans text-lg">
                 A passionate full-stack developer and AI enthusiast from India. Nilesh has contributed to open-source, completed GSSoC'24, and loves building smarter web solutions with modern tech stacks and LLMs.
               </p>
             </div>

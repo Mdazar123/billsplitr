@@ -113,7 +113,7 @@ export default function GroupChatPage() {
                     {!isMe && (
                       <div className={`hidden sm:block ${showAvatar ? '' : 'invisible'} mr-2`}>
                         <Avatar className="h-12 w-12">
-                          <AvatarFallback className="bg-gradient-to-r from-blue-600 to-green-500 text-white font-semibold text-2xl flex items-center justify-center">
+                          <AvatarFallback className="bg-gradient-to-r from-blue-700 to-green-600 text-white font-semibold text-2xl flex items-center justify-center">
                             {displayName?.split(" ").map((n: string) => n[0]).join("") || "?"}
                           </AvatarFallback>
                         </Avatar>

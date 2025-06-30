@@ -550,7 +550,7 @@ export default function GroupDetailPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3 sm:gap-4">
                         <div className="flex items-center gap-3 sm:gap-4">
                           <Avatar className="h-12 w-12 sm:h-16 sm:w-16 ring-4 ring-white shadow-lg">
-                            <AvatarFallback className="bg-gradient-to-r from-blue-600 to-green-500 text-white font-bold text-xl flex items-center justify-center">
+                            <AvatarFallback className="bg-gradient-to-r from-blue-700 to-green-600 text-white font-bold text-xl flex items-center justify-center">
                               {(member?.name ? member.name.split(" ").map((n: string) => n[0]).join("") : "?")}
                             </AvatarFallback>
                           </Avatar>
@@ -716,8 +716,8 @@ export default function GroupDetailPage() {
                     </CardDescription>
                   </div>
                   <Link href={`/group/${groupId}/add`}>
-                    <Button size="sm" className="text-xs sm:text-sm">
-                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <Button size="sm" className="bg-gradient-to-r from-blue-700 to-green-600 text-xs sm:text-sm">
+                      <Plus className=" h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                       Add Expense
                     </Button>
                   </Link>
@@ -890,7 +890,7 @@ export default function GroupDetailPage() {
             <div className="flex flex-col items-center justify-center py-12">
               <p className="text-lg font-semibold mb-2">Group Chat is now a dedicated page!</p>
               <Link href={`/group/${groupId}/chat`}>
-                <Button size="lg" className="bg-gradient-to-r from-blue-600 to-green-500 text-white font-bold shadow">Open Group Chat</Button>
+                <Button size="lg" className="bg-gradient-to-r from-blue-700 to-green-600 text-white font-bold shadow">Open Group Chat</Button>
               </Link>
             </div>
           </TabsContent>

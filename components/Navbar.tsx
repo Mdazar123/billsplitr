@@ -21,7 +21,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             <Link href="/" className="flex items-center gap-2 sm:gap-3 focus:outline-none">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-600 to-blue-600 rounded-lg flex items-center justify-center">
                 <Receipt className="h-3 w-3 sm:h-5 sm:w-5 text-white" />
               </div>
               <span className="text-lg sm:text-xl font-bold text-gray-900">BillSplitr</span>
@@ -68,7 +68,7 @@ export default function Navbar() {
                   <button className="text-gray-700 font-medium px-3 py-2 rounded hover:text-blue-700 transition-colors text-sm sm:text-base bg-transparent">Login</button>
                 </Link>
                 <Link href="/register">
-                  <button className="bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white font-semibold px-4 py-2 rounded-lg shadow text-sm sm:text-base transition-all duration-300">Get Started</button>
+                  <button className="bg-gradient-to-r from-blue-700 to-green-500 hover:from-blue-700 hover:to-green-600 text-white font-semibold px-4 py-2 rounded-lg shadow text-sm sm:text-base transition-all duration-300">Get Started</button>
                 </Link>
               </div>
             )}

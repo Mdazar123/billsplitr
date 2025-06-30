@@ -49,10 +49,7 @@ export default function LoginPage() {
     setIsLoading(true)
     setErrors({})
     try {
-      const persistence = formData.rememberMe
-        ? browserLocalPersistence
-        : browserSessionPersistence
-      await setPersistence(auth, persistence)
+      await setPersistence(auth, browserSessionPersistence)
       await signInWithEmailAndPassword(auth, formData.email, formData.password)
       setIsLoading(false)
       router.push("/dashboard")
@@ -76,7 +73,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-3 sm:p-4">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-3 sm:p-4">
       <div className="w-full max-w-sm sm:max-w-md">
         {/* Back to Home Link */}
         
@@ -164,19 +161,7 @@ export default function LoginPage() {
               </div>
 
               {/* Remember Me & Forgot Password */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <input
-                    id="remember"
-                    type="checkbox"
-                    checked={formData.rememberMe}
-                    onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
-                    className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <Label htmlFor="remember" className="text-xs sm:text-sm text-gray-600">
-                    Remember me
-                  </Label>
-                </div>
+              <div className="flex items-center justify-end">
                 <Link
                   href="/forgot-password"
                   className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
@@ -188,7 +173,7 @@ export default function LoginPage() {
               {/* Submit Button */}
               <Button
                 type="submit"
-                className="w-full h-11 sm:h-12 bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white font-medium transition-all duration-300 text-sm sm:text-base"
+                className="w-full h-11 sm:h-12 bg-gradient-to-r from-blue-700 to-green-600 hover:from-blue-800 hover:to-green-700 text-white font-bold transition-all duration-300 text-sm sm:text-base"
                 disabled={isLoading}
               >
                 {isLoading ? (

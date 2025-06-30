@@ -59,7 +59,7 @@ export default function HelpPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
     
 
@@ -83,38 +83,35 @@ export default function HelpPage() {
           {/* Info Cards */}
           <div className="grid md:grid-cols-3 gap-6 mb-8">
             {/* How BillSplitr Works */}
-            <Card className="bg-white shadow-sm border-0">
+            <Card className="bg-gradient-to-br from-blue-700 to-green-600 text-white shadow-lg border-0">
               <CardHeader className="text-center">
-                <CheckCircle className="h-12 w-12 text-blue-600 mx-auto mb-2" />
+                <CheckCircle className="h-12 w-12 text-white mx-auto mb-2" />
                 <CardTitle>How BillSplitr Works</CardTitle>
               </CardHeader>
               <CardContent className="text-center">
-                <p className="text-gray-600 mb-4">Learn about group creation, expense splitting, chat, and settlements.</p>
-                
+                <p className="text-white mb-4">Learn about group creation, expense splitting, chat, and settlements.</p>
               </CardContent>
             </Card>
 
             {/* Security & Privacy */}
-            <Card className="bg-white shadow-sm border-0">
+            <Card className="bg-gradient-to-br from-blue-700 to-green-600 text-white shadow-lg border-0">
               <CardHeader className="text-center">
-                <Lock className="h-12 w-12 text-green-600 mx-auto mb-2" />
+                <Lock className="h-12 w-12 text-white mx-auto mb-2" />
                 <CardTitle>Security & Privacy</CardTitle>
               </CardHeader>
               <CardContent className="text-center">
-                <p className="text-gray-600 mb-4">Your data is protected with Firebase Auth, Firestore, and Cloudinary.</p>
-                
+                <p className="text-white mb-4">Your data is protected with Firebase Auth, Firestore, and Cloudinary.</p>
               </CardContent>
             </Card>
 
             {/* Release Notes */}
-            <Card className="bg-white shadow-sm border-0">
+            <Card className="bg-gradient-to-br from-blue-700 to-green-600 text-white shadow-lg border-0">
               <CardHeader className="text-center">
-                <FileText className="h-12 w-12 text-purple-600 mx-auto mb-2" />
+                <FileText className="h-12 w-12 text-white mx-auto mb-2" />
                 <CardTitle>Release Notes</CardTitle>
               </CardHeader>
               <CardContent className="text-center">
-                <p className="text-gray-600 mb-4">See what's new in the latest version of BillSplitr.</p>
-                
+                <p className="text-white mb-4">See what's new in the latest version of BillSplitr.</p>
               </CardContent>
             </Card>
           </div>

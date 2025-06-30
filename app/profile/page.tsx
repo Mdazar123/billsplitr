@@ -139,7 +139,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
       
 
@@ -163,13 +163,13 @@ export default function ProfilePage() {
             <CardContent className="space-y-6">
               <div className="flex justify-end">
                 {!isEditing ? (
-                  <Button onClick={() => setIsEditing(true)} variant="outline">
+                  <Button onClick={() => setIsEditing(true)} className="bg-gradient-to-r from-blue-700 to-green-600 text-white font-bold">
                     <Edit className="h-4 w-4 mr-2" />
                     Edit Profile
                   </Button>
                 ) : (
                   <div className="flex gap-2">
-                    <Button onClick={handleSave}>
+                    <Button onClick={handleSave} className="bg-gradient-to-r from-blue-700 to-green-600 text-white font-bold">
                       <Save className="h-4 w-4 mr-2" />
                       Save Changes
                     </Button>

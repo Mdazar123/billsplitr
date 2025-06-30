@@ -33,69 +33,13 @@ export default function LandingPage() {
     <div className="min-h-screen overflow-hidden">
       {/* Hero Section with seamless gradient */}
       <div className="bg-gradient-to-b from-slate-50 via-blue-50 via-blue-100 to-blue-150">
-        {/* Header */}
-        {/* <header className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 relative z-10">
-          <nav className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3 animate-fade-in">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center animate-bounce-gentle">
-                <Receipt className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
-              </div>
-              <span className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">BillSplitr</span>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Avatar className="h-9 w-9 bg-gradient-to-r from-blue-600 to-green-500 text-white cursor-pointer">
-                      <AvatarFallback className="bg-gradient-to-r from-blue-600 to-green-500 text-white font-bold text-lg flex items-center justify-center">
-                        {user && user.displayName
-                          ? user.displayName.split(" ").map((n: string) => n[0]).join("")
-                          : user && user.email
-                            ? user.email.slice(0, 2).toUpperCase()
-                            : "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href="/profile" className="w-full">View Profile</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/dashboard" className="w-full">Dashboard</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/settings" className="w-full">Settings</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => { auth.signOut(); setUser(null); }}>Sign Out</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <>
-                  <Link href="/login">
-                    <Button variant="ghost" className="text-sm sm:text-base text-gray-600 hover:text-gray-900 px-2 sm:px-4">
-                      Login
-                    </Button>
-                  </Link>
-                  <Link href="/register">
-                    <Button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 sm:px-6 py-2 rounded-lg font-medium text-sm sm:text-base transition-all duration-300 hover:scale-105 hover:shadow-lg">
-                      Get Started
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </div>
-          </nav>
-        </header> */}
 
         {/* Floating Background Elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-10 w-20 h-20 bg-gradient-to-br from-blue-400/20 to-teal-500/20 rounded-full animate-float"></div>
-          <div className="absolute top-40 right-20 w-16 h-16 bg-gradient-to-br from-green-400/20 to-blue-500/20 rounded-full animate-float-delayed"></div>
-          <div className="absolute bottom-40 left-20 w-24 h-24 bg-gradient-to-br from-teal-400/20 to-green-500/20 rounded-full animate-float-slow"></div>
-          <div className="absolute bottom-20 right-10 w-12 h-12 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full animate-float"></div>
+          <div className="absolute top-20 left-10 w-20 h-20 bg-gradient-to-br from-blue-600/20 to-teal-500/20 rounded-full animate-float"></div>
+          <div className="absolute top-40 right-20 w-16 h-16 bg-gradient-to-br from-green-600/20 to-blue-500/20 rounded-full animate-float-delayed"></div>
+          <div className="absolute bottom-40 left-20 w-24 h-24 bg-gradient-to-br from-teal-600/20 to-green-500/20 rounded-full animate-float-slow"></div>
+          <div className="absolute bottom-20 right-10 w-12 h-12 bg-gradient-to-br from-blue-600/20 to-purple-500/20 rounded-full animate-float"></div>
         </div>
 
         {/* Hero Content */}
@@ -107,7 +51,7 @@ export default function LandingPage() {
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
                   <span className="text-gray-900 animate-fade-in">Track Expenses.</span>
                   <br />
-                  <span className="bg-gradient-to-r from-blue-600 via-blue-500 to-teal-500 bg-clip-text text-transparent animate-gradient-text">
+                  <span className="bg-gradient-to-r from-blue-900 via-blue-600 to-teal-600 bg-clip-text text-transparent animate-gradient-text">
                     Settle Smarter.
                   </span>
                 </h1>
@@ -122,7 +66,7 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 animate-fade-in-delayed-2">
                 <Button
                   size="lg"
-                  className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 animate-pulse-gentle"
+                  className="w-full sm:w-auto bg-gradient-to-r  from-blue-700 to-green-600 hover:from-blue-800 hover:to-green-700 text-white px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 animate-pulse-gentle"
                   onClick={() => {
                     if (authLoading) return;
                     if (user) {
@@ -145,20 +89,20 @@ export default function LandingPage() {
               {/* Feature Points */}
               <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 sm:gap-8 pt-4 animate-fade-in-delayed-3">
                 <div className="flex items-center gap-2 group">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm sm:text-base text-gray-600 font-medium group-hover:text-gray-900 transition-colors">
+                  <div className="w-2 h-2 bg-green-800 rounded-full animate-pulse"></div>
+                  <span className="text-sm sm:text-base text-blue-900 font-medium group-hover:text-gray-900 transition-colors">
                     Free to get started
                   </span>
                 </div>
                 <div className="flex items-center gap-2 group">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse animation-delay-200"></div>
-                  <span className="text-sm sm:text-base text-gray-600 font-medium group-hover:text-gray-900 transition-colors">
+                  <div className="w-2 h-2 bg-green-800 rounded-full animate-pulse animation-delay-200"></div>
+                  <span className="text-sm sm:text-base text-blue-900 font-medium group-hover:text-gray-900 transition-colors">
                     No hidden fees
                   </span>
                 </div>
                 <div className="flex items-center gap-2 group">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse animation-delay-400"></div>
-                  <span className="text-sm sm:text-base text-gray-600 font-medium group-hover:text-gray-900 transition-colors">
+                  <div className="w-2 h-2 bg-green-800 rounded-full animate-pulse animation-delay-400"></div>
+                  <span className="text-sm sm:text-base text-blue-900 font-medium group-hover:text-gray-900 transition-colors">
                     Secure & private
                   </span>
                 </div>
@@ -167,11 +111,11 @@ export default function LandingPage() {
 
             {/* Right Content - Compact App Mockup */}
             <div className="relative animate-slide-in-right">
-              <div className="relative bg-gradient-to-br from-blue-100 to-teal-100 rounded-2xl p-4 sm:p-6 shadow-2xl animate-float-gentle max-w-md mx-auto">
+              <div className="relative bg-gradient-to-br from-blue-200 to-teal-200 rounded-2xl p-4 sm:p-6 shadow-2xl animate-float-gentle max-w-md mx-auto">
                 {/* Browser Window Mockup - Smaller */}
                 <div className="bg-white rounded-xl shadow-xl overflow-hidden transform hover:scale-105 transition-transform duration-500">
                   {/* Browser Header */}
-                  <div className="bg-gradient-to-r from-blue-500 to-teal-400 px-3 sm:px-4 py-2 sm:py-3">
+                  <div className="bg-gradient-to-r from-blue-500 to-teal-600 px-3 sm:px-4 py-2 sm:py-3">
                     <div className="flex items-center gap-2">
                       <div className="flex gap-1.5">
                         <div className="w-2 h-2 bg-white/30 rounded-full animate-pulse"></div>
@@ -197,7 +141,7 @@ export default function LandingPage() {
                           <p className="text-xs text-gray-500">Paid by Sarah</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm sm:text-base font-bold text-green-600 animate-number-count">₹12,000</p>
+                          <p className="text-sm sm:text-base font-bold text-green-700 animate-number-count">₹12,000</p>
                         </div>
                       </div>
 
@@ -207,7 +151,7 @@ export default function LandingPage() {
                           <p className="text-xs text-gray-500">Paid by Alex</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm sm:text-base font-bold text-green-600 animate-number-count">₹3,500</p>
+                          <p className="text-sm sm:text-base font-bold text-green-700 animate-number-count">₹3,500</p>
                         </div>
                       </div>
                     </div>
@@ -215,7 +159,7 @@ export default function LandingPage() {
                     {/* Balance Summary - Compact */}
                     <div className="bg-blue-50 rounded-lg p-2 sm:p-3 animate-slide-in-up animation-delay-400 transform hover:scale-102 transition-all duration-300">
                       <h4 className="text-xs sm:text-sm font-semibold text-blue-900 mb-1">You owe Sarah</h4>
-                      <p className="text-xs text-blue-600 mb-1">From hotel split</p>
+                      <p className="text-xs text-blue-800 mb-1">From hotel split</p>
                       <p className="text-lg sm:text-xl font-bold text-blue-600 animate-number-count">₹2,400</p>
                     </div>
                   </div>
@@ -241,7 +185,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-3 gap-8 sm:gap-12 max-w-6xl mx-auto">
             {/* Step 1 */}
             <div className="text-center">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-700 to-teal-700 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
                 <span className="text-2xl sm:text-3xl font-bold text-white">1</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">Create a Group</h3>
@@ -253,7 +197,7 @@ export default function LandingPage() {
 
             {/* Step 2 */}
             <div className="text-center">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-700 to-teal-700 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
                 <span className="text-2xl sm:text-3xl font-bold text-white">2</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">Add Expenses</h3>
@@ -264,7 +208,7 @@ export default function LandingPage() {
 
             {/* Step 3 */}
             <div className="text-center">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-700 to-teal-700 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
                 <span className="text-2xl sm:text-3xl font-bold text-white">3</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">Settle Up</h3>
@@ -330,7 +274,7 @@ export default function LandingPage() {
                 className={`p-6 sm:p-8 border-0 shadow-lg hover:shadow-xl transition-all duration-500 bg-white transform hover:scale-105 animate-fade-in-up ${feature.delay} group`}
               >
                 <CardContent className="text-center space-y-3 sm:space-y-4">
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-green-500 rounded-2xl flex items-center justify-center mx-auto group-hover:rotate-12 transition-transform duration-300">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-700 to-green-700 rounded-2xl flex items-center justify-center mx-auto group-hover:rotate-12 transition-transform duration-300">
                     <feature.icon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                   </div>
                   <h3 className="text-lg sm:text-xl font-bold text-gray-900">{feature.title}</h3>
@@ -345,9 +289,9 @@ export default function LandingPage() {
       {/* CTA Section */}
       <section className="bg-white py-16 sm:py-20">
         <div className="container mx-auto px-4 sm:px-6">
-          <div className="text-center bg-gradient-to-r from-blue-600 to-green-500 rounded-3xl p-8 sm:p-16 text-white relative overflow-hidden animate-fade-in-up">
+          <div className="text-center bg-gradient-to-r from-blue-700 to-green-700 rounded-3xl p-8 sm:p-16 text-white relative overflow-hidden animate-fade-in-up">
             {/* Animated Background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-blue-500 to-green-500 animate-gradient-shift"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-700 via-blue-700 to-green-700 animate-gradient-shift"></div>
             <div className="relative z-10">
               <h2 className="text-3xl sm:text-5xl lg:text-4xl font-bold mb-4 sm:mb-6 leading-tight animate-fade-in">
                 Ready to simplify your shared expenses?
@@ -360,7 +304,7 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 mb-6 sm:mb-8 animate-fade-in-delayed-2">
                 <Button
                   size="lg"
-                  className="w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-100 px-8 sm:px-10 py-3 sm:py-4 text-base sm:text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 min-w-[200px]"
+                  className="w-full sm:w-auto bg-white text-blue-700 hover:bg-gray-100 px-8 sm:px-10 py-3 sm:py-4 text-base sm:text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 min-w-[200px]"
                   onClick={() => {
                     if (authLoading) return;
                     if (user) {
@@ -380,7 +324,7 @@ export default function LandingPage() {
                 </Button>
               </div>
 
-              <p className="text-base sm:text-lg opacity-80 animate-fade-in-delayed-3">
+              <p className="text-base sm:text-lg opacity-90 animate-fade-in-delayed-3 text-white">
                 No credit card required • Free forever plan available
               </p>
             </div>

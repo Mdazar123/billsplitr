@@ -295,7 +295,7 @@ export default function Dashboard() {
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Your Groups</h2>
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white">
+                <Button className="bg-gradient-to-r from-blue-700 to-green-600 hover:from-blue-800 hover:to-green-700 text-white">
                   <Plus className="h-4 w-4 mr-2" />
                   Create Group
                 </Button>
@@ -349,7 +349,7 @@ export default function Dashboard() {
                 className="bg-white shadow-lg border-0 hover:shadow-xl transition-all duration-300 overflow-hidden rounded-2xl"
               >
                 {/* Gradient Header */}
-                <div className="bg-gradient-to-r from-blue-500 via-blue-400 to-teal-400 p-4 sm:p-6 relative">
+                <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-teal-600 p-4 sm:p-6 relative">
                   {/* Browser-like dots */}
                   <div className="flex gap-1.5 mb-4">
                     <div className="w-2.5 h-2.5 bg-white/30 rounded-full"></div>
